@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.security import generate_confirmation_token, generate_public_reference
 from app.integrations.whatsapp.base import WhatsAppNotificationService
 from app.models.appointment import Appointment
@@ -152,9 +153,16 @@ def propose_alternate_slot(
         appointment.admin_note = payload.admin_note
     db.flush()
 
+    frontend_origin = get_settings().frontend_origin.rstrip("/")
+    confirmation_link = (
+        f"{frontend_origin}/confirm/{appointment.public_reference}"
+        f"?token={appointment.proposed_slot_token}"
+    )
     notification_service = NotificationService(db, whatsapp)
     attempt = notification_service.send_alternate_proposal(
-        appointment, doctor, next_step="reply to this chat or call the clinic"
+        appointment,
+        doctor,
+        next_step=f"confirm at {confirmation_link}, or call the clinic",
     )
     db.commit()
     return appointment, attempt

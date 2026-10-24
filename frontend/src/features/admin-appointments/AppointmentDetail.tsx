@@ -12,6 +12,7 @@ import type { AppointmentAdminDetail, NotificationAttempt } from '../../types/ap
 
 const CAN_ACCEPT = new Set(['PENDING', 'ALTERNATE_PROPOSED'])
 const CAN_PROPOSE = new Set(['PENDING', 'ALTERNATE_PROPOSED'])
+const CAN_CANCEL = new Set(['PENDING', 'ALTERNATE_PROPOSED', 'CONFIRMED'])
 
 export function AppointmentDetail({ appointmentId }: { appointmentId: string }) {
   const [appointment, setAppointment] = useState<AppointmentAdminDetail | null>(null)
@@ -158,11 +159,21 @@ export function AppointmentDetail({ appointmentId }: { appointmentId: string }) 
             </Button>
           )}
 
-          {appointment.status === 'PENDING' && (
+          {appointment.status === 'CONFIRMED' && (
+            <Button
+              variant="secondary"
+              onClick={() => runAction(() => adminApi.updateStatus(appointment.id, 'COMPLETED'), 'Marked as completed.')}
+              disabled={busy}
+            >
+              Mark completed
+            </Button>
+          )}
+
+          {CAN_CANCEL.has(appointment.status) && (
             <Button
               variant="danger"
               onClick={() => {
-                if (!window.confirm('Cancel this appointment request?')) return
+                if (!window.confirm('Cancel this appointment?')) return
                 runAction(
                   () => adminApi.updateStatus(appointment.id, 'CANCELLED'),
                   'Appointment cancelled.',
@@ -172,28 +183,6 @@ export function AppointmentDetail({ appointmentId }: { appointmentId: string }) 
             >
               Cancel
             </Button>
-          )}
-
-          {appointment.status === 'CONFIRMED' && (
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => runAction(() => adminApi.updateStatus(appointment.id, 'COMPLETED'), 'Marked as completed.')}
-                disabled={busy}
-              >
-                Mark completed
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (!window.confirm('Cancel this confirmed appointment?')) return
-                  runAction(() => adminApi.updateStatus(appointment.id, 'CANCELLED'), 'Appointment cancelled.')
-                }}
-                disabled={busy}
-              >
-                Cancel
-              </Button>
-            </>
           )}
         </div>
 

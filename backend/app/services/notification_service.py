@@ -80,6 +80,13 @@ class NotificationService:
                 reference_number=appointment.public_reference,
             )
         else:
+            from app.core.config import get_settings
+
+            frontend_origin = get_settings().frontend_origin.rstrip("/")
+            confirmation_link = (
+                f"{frontend_origin}/confirm/{appointment.public_reference}"
+                f"?token={appointment.proposed_slot_token}"
+            )
             result = self.whatsapp.send_alternate_proposal(
                 whatsapp_number=appointment.whatsapp_number,
                 patient_name=appointment.patient_name,
@@ -87,6 +94,6 @@ class NotificationService:
                 proposed_date=appointment.proposed_date,
                 proposed_time=appointment.proposed_time,
                 reference_number=appointment.public_reference,
-                next_step="contact the clinic to confirm",
+                next_step=f"confirm at {confirmation_link}, or call the clinic",
             )
         return self._apply_result(latest, result)

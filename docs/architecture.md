@@ -78,3 +78,8 @@ and `features/admin-appointments` hold the three independent user flows; `pages/
 route-level compositions of those features plus the shared `SiteHeader`/`components/`.
 `AuthContext` (`features/admin-auth/`) holds the signed-in admin and is the single source of
 truth `RequireAuth` uses to protect `/admin/appointments*` routes.
+
+`pages/ConfirmSlotPage.tsx` (route `/confirm/:reference?token=...`) is the patient-facing page for
+the proposed-slot token described above — it's the link sent in the alternate-slot WhatsApp
+message (built from `FRONTEND_ORIGIN` in `appointment_service.propose_alternate_slot` /
+`notification_service.retry_latest`), not just a backend-only endpoint.
