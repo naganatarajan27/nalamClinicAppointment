@@ -10,6 +10,28 @@ services:
       - "5432:5432"
     volumes:
       - nalam_clinic_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nalam_clinic"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+psycopg://user:password@db:5432/nalam_clinic
+      FRONTEND_ORIGIN: http://localhost:5173
+      SESSION_SECRET: local-docker-compose-secret-not-for-production
+      ADMIN_SESSION_COOKIE_SECURE: "false"
+      WHATSAPP_PROVIDER: mock
+      EMAIL_PROVIDER: mock
+    ports:
+      - "8000:8000"
 
 volumes:
   nalam_clinic_db:

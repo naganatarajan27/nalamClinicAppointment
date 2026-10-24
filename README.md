@@ -5,6 +5,7 @@ request, accepts the requested slot or proposes a different one, and the patient
 message (and an email, if they gave one) once their appointment is confirmed.
 
 Full requirements/spec: [CLAUDE_REQUIREMENTS_NALAM_CLINIC.md](CLAUDE_REQUIREMENTS_NALAM_CLINIC.md).
+Deploying this to a real URL on the internet? See [docs/deployment.md](docs/deployment.md).
 
 ## Stack
 
@@ -19,6 +20,11 @@ Full requirements/spec: [CLAUDE_REQUIREMENTS_NALAM_CLINIC.md](CLAUDE_REQUIREMENT
 - Python 3.11+
 - Node.js 20+
 - PostgreSQL 16 (or Docker, via the included `docker-compose.yml`)
+
+Alternatively, `docker compose up -d --build` runs Postgres and the backend together (the backend
+builds from `backend/Dockerfile`, which also powers the production deploy path — see
+[docs/deployment.md](docs/deployment.md)); you'd still run the frontend separately with
+`npm run dev` per below.
 
 ## Backend setup
 

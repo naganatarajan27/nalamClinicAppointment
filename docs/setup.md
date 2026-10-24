@@ -2,7 +2,8 @@
 
 See the root [README.md](../README.md) for day-to-day local setup (venv, `pip install`,
 migrations, admin bootstrap, running both dev servers and both test suites). This file covers
-what changes for a production deployment.
+*what* changes for a production deployment; see [deployment.md](deployment.md) for *where* to
+actually host it (Render/Vercel, or a VPS) and the concrete step-by-step for each.
 
 ## Production configuration
 

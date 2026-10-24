@@ -12,7 +12,7 @@ requirements/spec (source of truth for intended behavior, not just history):
 [CLAUDE_REQUIREMENTS_NALAM_CLINIC.md](CLAUDE_REQUIREMENTS_NALAM_CLINIC.md) — note this predates
 the email/availability features, which were added afterward. Setup/ops details:
 [README.md](README.md); deeper design notes: [docs/architecture.md](docs/architecture.md),
-[docs/api.md](docs/api.md), [docs/setup.md](docs/setup.md).
+[docs/api.md](docs/api.md), [docs/setup.md](docs/setup.md), [docs/deployment.md](docs/deployment.md).
 
 Never claim a real WhatsApp message or email was sent unless the real provider confirmed it. The
 mock adapters (`WHATSAPP_PROVIDER=mock` / `EMAIL_PROVIDER=mock`, both default) are used in local
@@ -35,8 +35,10 @@ alembic revision --autogenerate -m "..."     # new migration after changing app/
 python scripts/create_admin.py --email admin@example.com   # bootstrap the first admin (no public signup route)
 ```
 
-Local Postgres: `docker compose up -d db` (repo-root `docker-compose.yml`). Config is read from
-`.env` via `app/core/config.py` (`pydantic-settings`); see `.env.example`.
+Local Postgres: `docker compose up -d db` (repo-root `docker-compose.yml`), or
+`docker compose up -d --build` for Postgres + the backend together via `backend/Dockerfile` (the
+same image used in production — see [docs/deployment.md](docs/deployment.md)). Config is read
+from `.env` via `app/core/config.py` (`pydantic-settings`); see `.env.example`.
 
 ### Frontend (`frontend/`)
 
