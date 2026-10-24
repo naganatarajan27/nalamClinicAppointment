@@ -4,7 +4,7 @@ import { Button } from '../../components/Button'
 import { FormField } from '../../components/FormField'
 import { createAppointment } from '../../api/publicApi'
 import { ApiError } from '../../api/client'
-import { isPastDate, isValidE164, todayIsoDate } from '../../utils/validation'
+import { isPastDate, isValidE164, isValidEmail, todayIsoDate } from '../../utils/validation'
 import { useAvailability } from './useAvailability'
 import { useDoctors } from './useDoctors'
 import type { PatientType } from '../../types/api'
@@ -14,8 +14,10 @@ const SYMPTOMS_MAX_LENGTH = 1000
 interface FormState {
   patientName: string
   patientType: PatientType | ''
-  phoneNumber: string
+  mobileNumber: string
+  whatsappSameAsMobile: boolean
   whatsappNumber: string
+  email: string
   doctorId: string
   requestedDate: string
   requestedTime: string
@@ -25,8 +27,10 @@ interface FormState {
 const INITIAL_STATE: FormState = {
   patientName: '',
   patientType: '',
-  phoneNumber: '',
+  mobileNumber: '',
+  whatsappSameAsMobile: true,
   whatsappNumber: '',
+  email: '',
   doctorId: '',
   requestedDate: '',
   requestedTime: '',
@@ -35,22 +39,30 @@ const INITIAL_STATE: FormState = {
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
+const PHONE_FORMAT_HINT = "Use international format starting with '+' and the country code, e.g. +91XXXXXXXXXX."
+
 function validate(values: FormState): FormErrors {
   const errors: FormErrors = {}
 
   if (!values.patientName.trim()) errors.patientName = 'Please enter the patient name.'
   if (!values.patientType) errors.patientType = 'Please select patient type.'
 
-  if (!values.phoneNumber.trim()) {
-    errors.phoneNumber = 'Please enter a phone number.'
-  } else if (!isValidE164(values.phoneNumber)) {
-    errors.phoneNumber = "Use international format starting with '+' and the country code, e.g. +91XXXXXXXXXX."
+  if (!values.mobileNumber.trim()) {
+    errors.mobileNumber = 'Please enter a mobile number.'
+  } else if (!isValidE164(values.mobileNumber)) {
+    errors.mobileNumber = PHONE_FORMAT_HINT
   }
 
-  if (!values.whatsappNumber.trim()) {
-    errors.whatsappNumber = 'Please enter a WhatsApp number.'
-  } else if (!isValidE164(values.whatsappNumber)) {
-    errors.whatsappNumber = "Use international format starting with '+' and the country code, e.g. +91XXXXXXXXXX."
+  if (!values.whatsappSameAsMobile) {
+    if (!values.whatsappNumber.trim()) {
+      errors.whatsappNumber = 'Please enter a WhatsApp number.'
+    } else if (!isValidE164(values.whatsappNumber)) {
+      errors.whatsappNumber = PHONE_FORMAT_HINT
+    }
+  }
+
+  if (values.email.trim() && !isValidEmail(values.email)) {
+    errors.email = 'Please enter a valid email address.'
   }
 
   if (!values.doctorId) errors.doctorId = 'Please select a doctor.'
@@ -103,8 +115,9 @@ export function BookingForm() {
       const result = await createAppointment({
         patient_name: values.patientName.trim(),
         patient_type: values.patientType as PatientType,
-        phone_number: values.phoneNumber.trim(),
-        whatsapp_number: values.whatsappNumber.trim(),
+        phone_number: values.mobileNumber.trim(),
+        whatsapp_number: (values.whatsappSameAsMobile ? values.mobileNumber : values.whatsappNumber).trim(),
+        email: values.email.trim() || undefined,
         doctor_id: values.doctorId,
         requested_date: values.requestedDate,
         requested_time: values.requestedTime.length === 5 ? `${values.requestedTime}:00` : values.requestedTime,
@@ -178,29 +191,43 @@ export function BookingForm() {
         </select>
       </FormField>
 
-      <div className="form-row">
-        <FormField
-          label="Phone number"
-          htmlFor="phoneNumber"
-          error={errors.phoneNumber}
-          hint="Include country code, e.g. +91XXXXXXXXXX"
-        >
-          <input
-            id="phoneNumber"
-            type="tel"
-            value={values.phoneNumber}
-            onChange={(e) => updateField('phoneNumber', e.target.value)}
-            aria-invalid={Boolean(errors.phoneNumber)}
-            disabled={submitting}
-            required
-          />
-        </FormField>
+      <FormField
+        label="Mobile number"
+        htmlFor="mobileNumber"
+        error={errors.mobileNumber}
+        hint="Include country code, e.g. +91XXXXXXXXXX"
+      >
+        <input
+          id="mobileNumber"
+          type="tel"
+          value={values.mobileNumber}
+          onChange={(e) => updateField('mobileNumber', e.target.value)}
+          aria-invalid={Boolean(errors.mobileNumber)}
+          disabled={submitting}
+          required
+        />
+      </FormField>
 
+      <div className="form-field">
+        <label htmlFor="whatsappSameAsMobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 400 }}>
+          <input
+            id="whatsappSameAsMobile"
+            type="checkbox"
+            checked={values.whatsappSameAsMobile}
+            onChange={(e) => updateField('whatsappSameAsMobile', e.target.checked)}
+            disabled={submitting}
+            style={{ width: 'auto' }}
+          />
+          My WhatsApp number is the same as my mobile number
+        </label>
+      </div>
+
+      {!values.whatsappSameAsMobile && (
         <FormField
           label="WhatsApp number"
           htmlFor="whatsappNumber"
           error={errors.whatsappNumber}
-          hint="Used to send your confirmation. May differ from your phone number."
+          hint="Used to send your confirmation."
         >
           <input
             id="whatsappNumber"
@@ -212,7 +239,23 @@ export function BookingForm() {
             required
           />
         </FormField>
-      </div>
+      )}
+
+      <FormField
+        label="Email address (optional)"
+        htmlFor="email"
+        error={errors.email}
+        hint="If you provide an email, we'll also send your appointment confirmation there."
+      >
+        <input
+          id="email"
+          type="email"
+          value={values.email}
+          onChange={(e) => updateField('email', e.target.value)}
+          aria-invalid={Boolean(errors.email)}
+          disabled={submitting}
+        />
+      </FormField>
 
       <FormField label="Preferred doctor" htmlFor="doctorId" error={errors.doctorId}>
         <select

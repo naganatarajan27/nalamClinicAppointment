@@ -12,16 +12,16 @@
   rules (`app/models/enums.py:ALLOWED_STATUS_TRANSITIONS`) and orchestrates
   repositories + the WhatsApp integration.
 - **`repositories/`** — SQLAlchemy queries only, one per aggregate (`Admin`, `Doctor`,
-  `Appointment`, `NotificationAttempt`). No business rules here.
+  `DoctorAvailability`, `Appointment`, `NotificationAttempt`). No business rules here.
 - **`models/`** — SQLAlchemy ORM models and the shared enums/status-transition map.
 - **`schemas/`** — Pydantic request/response models. API routes never return ORM objects
   directly (see `AppointmentAdminDetail` vs. the public `AppointmentPublicStatus`, which
   deliberately excludes symptoms/contact fields).
-- **`integrations/whatsapp/`** — `WhatsAppNotificationService` is an abstract interface with two
-  implementations: `MockWhatsAppAdapter` (default, logs instead of sending) and
-  `WhatsAppCloudApiAdapter` (calls the real Meta Graph API). `factory.get_whatsapp_adapter()`
-  picks one based on `WHATSAPP_PROVIDER`. This is what makes WhatsApp sends mockable in tests
-  without touching the network.
+- **`integrations/whatsapp/`** and **`integrations/email/`** — each is an abstract
+  `*NotificationService` interface with a mock adapter (default; logs instead of sending) and a
+  real one (`WhatsAppCloudApiAdapter` / `SmtpEmailAdapter`), selected by `WHATSAPP_PROVIDER` /
+  `EMAIL_PROVIDER` via each integration's `factory.py`. This is what makes sends mockable in
+  tests without touching the network.
 
 ## Appointment lifecycle
 
@@ -51,13 +51,28 @@ can move `ALTERNATE_PROPOSED` → `CONFIRMED` themselves; an admin can also do i
 
 ## Notifications
 
-Each accept/propose action creates one `NotificationAttempt` row and sends it synchronously in
-the same request (see `NotificationService` in `app/services/notification_service.py`). A retry
-re-sends through the *same* row (`attempt_count` increments) rather than creating a new one, so
-retries are visible as one history entry per notification rather than a growing list. The
-`/webhooks/whatsapp` endpoint (`app/api/v1/webhooks.py`) updates a `NotificationAttempt` to
-`DELIVERED` from Meta's delivery-status callbacks, matched by `provider_message_id`; it never
-downgrades a `DELIVERED` status back to `SENT`.
+Accepting an appointment always sends a WhatsApp confirmation, plus an email confirmation if the
+patient gave an email address — each is its own `NotificationAttempt` row
+(`channel` = `WHATSAPP` / `EMAIL`), sent synchronously in the same request (see
+`NotificationService` in `app/services/notification_service.py`). Proposing a slot only sends
+WhatsApp (the spec's alternate-slot flow is WhatsApp-only). Retrying targets one specific
+attempt by id (`POST /admin/appointments/{id}/notifications/{notification_id}/retry`) and re-sends
+through that *same* row (`attempt_count` increments) rather than creating a new one, so a failed
+WhatsApp send and a failed email send can be retried independently and each stays one history
+entry rather than a growing list. The `/webhooks/whatsapp` endpoint (`app/api/v1/webhooks.py`)
+updates a `NotificationAttempt` to `DELIVERED` from Meta's delivery-status callbacks, matched by
+`provider_message_id`; it never downgrades a `DELIVERED` status back to `SENT`.
+
+## Doctor availability
+
+`DoctorAvailability` rows are a clinic-configured weekly recurring schedule per doctor
+(`day_of_week` 0=Monday..6=Sunday, `start_time`, `end_time`, `slot_duration_minutes`), managed by
+admins via `/admin/doctors/{id}/availability` (`app/services/doctor_availability_service.py`).
+`availability_service.list_available_slots` expands the matching weekday's active windows into
+concrete time slots for the requested date, then subtracts already-requested/booked times (and,
+for today, past times) — this is what the public `/availability` endpoint and the booking form's
+time dropdown use. A doctor with no configured window for that weekday simply has no slots; the
+booking form still lets a patient type a manual time as a request in that case.
 
 ## Auth
 
@@ -74,12 +89,21 @@ multi-instance deployments.
 `frontend/src/` mirrors the backend's intent: `api/` holds two thin fetch wrappers
 (`publicApi.ts`, `adminApi.ts`) built on a shared `client.ts` that injects the CSRF header on
 every non-GET request and normalizes error messages. `features/booking`, `features/admin-auth`,
-and `features/admin-appointments` hold the three independent user flows; `pages/` are thin
-route-level compositions of those features plus the shared `SiteHeader`/`components/`.
-`AuthContext` (`features/admin-auth/`) holds the signed-in admin and is the single source of
-truth `RequireAuth` uses to protect `/admin/appointments*` routes.
+`features/admin-appointments`, and `features/admin-doctors` hold the independent user flows;
+`pages/` are thin route-level compositions of those features plus the shared
+`SiteHeader`/`components/`. `AuthContext` (`features/admin-auth/`) holds the signed-in admin and
+is the single source of truth `RequireAuth` uses to protect `/admin/*` routes.
+
+The booking form (`features/booking/BookingForm.tsx`) collects one mobile number plus a "WhatsApp
+number is the same as my mobile number" checkbox (default checked) that conditionally reveals a
+second number field, and an optional email field — mirroring `AppointmentCreate`'s
+`phone_number`/`whatsapp_number`/`email` fields on the backend.
 
 `pages/ConfirmSlotPage.tsx` (route `/confirm/:reference?token=...`) is the patient-facing page for
 the proposed-slot token described above — it's the link sent in the alternate-slot WhatsApp
-message (built from `FRONTEND_ORIGIN` in `appointment_service.propose_alternate_slot` /
-`notification_service.retry_latest`), not just a backend-only endpoint.
+message (built from `FRONTEND_ORIGIN` in `notification_service._proposed_slot_confirmation_link`),
+not just a backend-only endpoint.
+
+`pages/AdminDoctorsPage.tsx` (route `/admin/doctors`) hosts `features/admin-doctors/DoctorsManager`
+(add/activate/deactivate doctors) and, per doctor, `DoctorAvailabilityPanel` (add/enable/disable/
+remove weekly availability windows) — the admin-facing side of the availability model above.

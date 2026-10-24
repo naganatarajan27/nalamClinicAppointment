@@ -3,14 +3,15 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.security import generate_confirmation_token, generate_public_reference
+from app.integrations.email.base import EmailNotificationService
 from app.integrations.whatsapp.base import WhatsAppNotificationService
 from app.models.appointment import Appointment
-from app.models.enums import ALLOWED_STATUS_TRANSITIONS, AppointmentStatus
+from app.models.enums import ALLOWED_STATUS_TRANSITIONS, AppointmentStatus, NotificationType
 from app.models.notification_attempt import NotificationAttempt
 from app.repositories.appointment_repository import AppointmentRepository
 from app.repositories.doctor_repository import DoctorRepository
+from app.repositories.notification_repository import NotificationRepository
 from app.schemas.appointment import AppointmentCreate, ProposeSlotRequest
 from app.services.exceptions import InvalidTransitionError, NotFoundError, ValidationError
 from app.services.notification_service import NotificationService
@@ -30,6 +31,7 @@ def create_appointment(db: Session, payload: AppointmentCreate) -> Appointment:
         patient_type=payload.patient_type,
         phone_number=payload.phone_number,
         whatsapp_number=payload.whatsapp_number,
+        email=payload.email,
         doctor_id=payload.doctor_id,
         requested_date=payload.requested_date,
         requested_time=payload.requested_time,
@@ -91,7 +93,8 @@ def accept_appointment(
     admin_id: uuid.UUID,
     admin_note: str | None,
     whatsapp: WhatsAppNotificationService,
-) -> tuple[Appointment, NotificationAttempt]:
+    email: EmailNotificationService | None = None,
+) -> tuple[Appointment, list[NotificationAttempt]]:
     appointment = get_for_admin(db, appointment_id)
     if appointment.status not in (AppointmentStatus.PENDING, AppointmentStatus.ALTERNATE_PROPOSED):
         raise InvalidTransitionError(
@@ -113,10 +116,10 @@ def accept_appointment(
         appointment.admin_note = admin_note
     db.flush()
 
-    notification_service = NotificationService(db, whatsapp)
-    attempt = notification_service.send_confirmation(appointment, doctor)
+    notification_service = NotificationService(db, whatsapp, email)
+    attempts = notification_service.send_confirmation(appointment, doctor)
     db.commit()
-    return appointment, attempt
+    return appointment, attempts
 
 
 def propose_alternate_slot(
@@ -153,17 +156,8 @@ def propose_alternate_slot(
         appointment.admin_note = payload.admin_note
     db.flush()
 
-    frontend_origin = get_settings().frontend_origin.rstrip("/")
-    confirmation_link = (
-        f"{frontend_origin}/confirm/{appointment.public_reference}"
-        f"?token={appointment.proposed_slot_token}"
-    )
     notification_service = NotificationService(db, whatsapp)
-    attempt = notification_service.send_alternate_proposal(
-        appointment,
-        doctor,
-        next_step=f"confirm at {confirmation_link}, or call the clinic",
-    )
+    attempt = notification_service.send_alternate_proposal(appointment, doctor)
     db.commit()
     return appointment, attempt
 
@@ -186,22 +180,29 @@ def update_status(
 
 
 def retry_notification(
-    db: Session, *, appointment_id: uuid.UUID, whatsapp: WhatsAppNotificationService
+    db: Session,
+    *,
+    appointment_id: uuid.UUID,
+    notification_id: uuid.UUID,
+    whatsapp: WhatsAppNotificationService,
+    email: EmailNotificationService | None = None,
 ) -> NotificationAttempt:
     appointment = get_for_admin(db, appointment_id)
+    attempt = NotificationRepository(db).get(notification_id)
+    if attempt is None or attempt.appointment_id != appointment.id:
+        raise NotFoundError("Notification attempt not found.")
+
     doctor_id = (
         appointment.confirmed_doctor_id
-        if appointment.status == AppointmentStatus.CONFIRMED
+        if attempt.notification_type == NotificationType.CONFIRMATION
         else appointment.proposed_doctor_id
     )
     doctor = DoctorRepository(db).get(doctor_id) if doctor_id else None
     if doctor is None:
-        raise ValidationError("No doctor associated with the latest notification.")
+        raise ValidationError("No doctor associated with this notification.")
 
-    notification_service = NotificationService(db, whatsapp)
-    attempt = notification_service.retry_latest(appointment, doctor)
-    if attempt is None:
-        raise NotFoundError("No prior notification attempt to retry.")
+    notification_service = NotificationService(db, whatsapp, email)
+    notification_service.retry(attempt, appointment, doctor)
     db.commit()
     return attempt
 

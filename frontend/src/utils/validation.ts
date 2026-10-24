@@ -1,7 +1,12 @@
 const E164_PATTERN = /^\+[1-9]\d{6,14}$/
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function isValidE164(value: string): boolean {
   return E164_PATTERN.test(value.trim())
+}
+
+export function isValidEmail(value: string): boolean {
+  return EMAIL_PATTERN.test(value.trim())
 }
 
 export function isPastDate(isoDate: string): boolean {

@@ -22,6 +22,7 @@ class Appointment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     phone_number: Mapped[str] = mapped_column(String(32), nullable=False)
     whatsapp_number: Mapped[str] = mapped_column(String(32), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     doctor_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("doctors.id"), nullable=False, index=True

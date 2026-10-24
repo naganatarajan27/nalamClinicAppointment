@@ -4,7 +4,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from app.api.deps import CurrentAdmin, DbSession, get_whatsapp_service, require_csrf
+from app.api.deps import CurrentAdmin, DbSession, get_email_service, get_whatsapp_service, require_csrf
+from app.integrations.email.base import EmailNotificationService
 from app.integrations.whatsapp.base import WhatsAppNotificationService
 from app.models.enums import AppointmentStatus
 from app.repositories.doctor_repository import DoctorRepository
@@ -65,6 +66,7 @@ def _to_detail(db, appointment) -> AppointmentAdminDetail:
         patient_type=appointment.patient_type,
         phone_number=appointment.phone_number,
         whatsapp_number=appointment.whatsapp_number,
+        email=appointment.email,
         doctor=DoctorPublic.model_validate(doctor) if doctor else None,
         requested_date=appointment.requested_date,
         requested_time=appointment.requested_time,
@@ -119,14 +121,16 @@ def accept_appointment(
     db: DbSession,
     admin: CurrentAdmin,
     whatsapp: WhatsAppNotificationService = Depends(get_whatsapp_service),
+    email: EmailNotificationService = Depends(get_email_service),
 ) -> AppointmentAdminDetail:
     try:
-        appointment, _attempt = appointment_service.accept_appointment(
+        appointment, _attempts = appointment_service.accept_appointment(
             db,
             appointment_id=appointment_id,
             admin_id=admin.id,
             admin_note=payload.admin_note,
             whatsapp=whatsapp,
+            email=email,
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found.") from exc
@@ -169,15 +173,23 @@ def set_status(
     return _to_detail(db, appointment)
 
 
-@router.post("/{appointment_id}/notifications/retry", response_model=NotificationAttemptOut)
+@router.post("/{appointment_id}/notifications/{notification_id}/retry", response_model=NotificationAttemptOut)
 def retry_notification(
     appointment_id: uuid.UUID,
+    notification_id: uuid.UUID,
     db: DbSession,
     _admin: CurrentAdmin,
     whatsapp: WhatsAppNotificationService = Depends(get_whatsapp_service),
+    email: EmailNotificationService = Depends(get_email_service),
 ) -> NotificationAttemptOut:
     try:
-        attempt = appointment_service.retry_notification(db, appointment_id=appointment_id, whatsapp=whatsapp)
+        attempt = appointment_service.retry_notification(
+            db,
+            appointment_id=appointment_id,
+            notification_id=notification_id,
+            whatsapp=whatsapp,
+            email=email,
+        )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValidationError as exc:

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/Button'
 import { SiteHeader } from '../components/SiteHeader'
 import { AppointmentsList } from '../features/admin-appointments/AppointmentsList'
@@ -19,6 +19,7 @@ export function AdminDashboardPage() {
         subtitle="Appointment requests"
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Link to="/admin/doctors">Doctors &amp; availability</Link>
             <span className="hint">{admin?.email}</span>
             <Button variant="secondary" onClick={handleLogout}>
               Log out

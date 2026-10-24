@@ -102,6 +102,11 @@ export function AppointmentDetail({ appointmentId }: { appointmentId: string }) 
             <p>
               <strong>WhatsApp:</strong> {appointment.whatsapp_number}
             </p>
+            {appointment.email && (
+              <p>
+                <strong>Email:</strong> {appointment.email}
+              </p>
+            )}
           </div>
           <div>
             <p>
@@ -144,7 +149,9 @@ export function AppointmentDetail({ appointmentId }: { appointmentId: string }) 
               onClick={() =>
                 runAction(
                   () => adminApi.acceptAppointment(appointment.id, adminNote),
-                  'Appointment confirmed and a WhatsApp confirmation was sent.',
+                  appointment.email
+                    ? 'Appointment confirmed and WhatsApp + email confirmations were sent.'
+                    : 'Appointment confirmed and a WhatsApp confirmation was sent.',
                 )
               }
               loading={busy}
@@ -246,16 +253,19 @@ export function AppointmentDetail({ appointmentId }: { appointmentId: string }) 
           <table className="data-table">
             <thead>
               <tr>
+                <th>Channel</th>
                 <th>Type</th>
                 <th>Status</th>
                 <th>Attempts</th>
                 <th>Sent at</th>
                 <th>Last error</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {notifications.map((n) => (
                 <tr key={n.id}>
+                  <td>{n.channel === 'EMAIL' ? 'Email' : 'WhatsApp'}</td>
                   <td>{n.notification_type === 'CONFIRMATION' ? 'Confirmation' : 'Alternate proposal'}</td>
                   <td>
                     <StatusBadge status={n.status} />
@@ -263,19 +273,26 @@ export function AppointmentDetail({ appointmentId }: { appointmentId: string }) 
                   <td>{n.attempt_count}</td>
                   <td>{n.sent_at ? formatDateTime(n.sent_at) : '—'}</td>
                   <td>{n.last_error_summary ?? '—'}</td>
+                  <td>
+                    {n.status === 'FAILED' && (
+                      <Button
+                        variant="secondary"
+                        onClick={() =>
+                          runAction(
+                            () => adminApi.retryNotification(appointment.id, n.id),
+                            'Notification retried.',
+                          )
+                        }
+                        loading={busy}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-        {notifications.some((n) => n.status === 'FAILED') && (
-          <Button
-            variant="secondary"
-            onClick={() => runAction(() => adminApi.retryNotification(appointment.id), 'Notification retried.')}
-            loading={busy}
-          >
-            Retry failed notification
-          </Button>
         )}
       </div>
     </div>

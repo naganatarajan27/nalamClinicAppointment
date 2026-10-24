@@ -157,3 +157,77 @@ def test_patient_can_confirm_proposed_slot_via_token(client, doctor, auth_header
         f"/api/v1/appointments/{public_reference}/confirm-proposed-slot", json={"token": "wrong"}
     )
     assert wrong_token.status_code == 400
+
+
+def test_accept_sends_email_confirmation_when_email_provided(client, doctor, auth_headers):
+    tomorrow = date.today() + timedelta(days=1)
+    payload = {
+        "patient_name": "Priya Shah",
+        "patient_type": "NEW",
+        "phone_number": "+919876543210",
+        "whatsapp_number": "+919876543210",
+        "email": "priya@example.com",
+        "doctor_id": str(doctor.id),
+        "requested_date": tomorrow.isoformat(),
+        "requested_time": "11:00:00",
+        "symptoms": "Annual checkup.",
+    }
+    client.post("/api/v1/appointments", json=payload)
+    appt_id = client.get("/api/v1/admin/appointments", headers=auth_headers).json()["items"][0]["id"]
+
+    response = client.patch(
+        f"/api/v1/admin/appointments/{appt_id}/accept", json={}, headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json()["email"] == "priya@example.com"
+
+    notifications = client.get(
+        f"/api/v1/admin/appointments/{appt_id}/notifications", headers=auth_headers
+    ).json()
+    channels = {n["channel"] for n in notifications}
+    assert channels == {"WHATSAPP", "EMAIL"}
+    assert all(n["status"] == "SENT" for n in notifications)
+
+
+def test_accept_without_email_only_sends_whatsapp(client, doctor, auth_headers):
+    _book(client, str(doctor.id))
+    appt_id = client.get("/api/v1/admin/appointments", headers=auth_headers).json()["items"][0]["id"]
+
+    client.patch(f"/api/v1/admin/appointments/{appt_id}/accept", json={}, headers=auth_headers)
+
+    notifications = client.get(
+        f"/api/v1/admin/appointments/{appt_id}/notifications", headers=auth_headers
+    ).json()
+    assert len(notifications) == 1
+    assert notifications[0]["channel"] == "WHATSAPP"
+
+
+def test_retry_notification_targets_a_specific_attempt(client, doctor, auth_headers):
+    _book(client, str(doctor.id))
+    appt_id = client.get("/api/v1/admin/appointments", headers=auth_headers).json()["items"][0]["id"]
+    client.patch(f"/api/v1/admin/appointments/{appt_id}/accept", json={}, headers=auth_headers)
+
+    notifications = client.get(
+        f"/api/v1/admin/appointments/{appt_id}/notifications", headers=auth_headers
+    ).json()
+    notification_id = notifications[0]["id"]
+    initial_attempt_count = notifications[0]["attempt_count"]
+
+    retry = client.post(
+        f"/api/v1/admin/appointments/{appt_id}/notifications/{notification_id}/retry",
+        headers=auth_headers,
+    )
+    assert retry.status_code == 200
+    assert retry.json()["attempt_count"] == initial_attempt_count + 1
+
+
+def test_retry_unknown_notification_id_returns_404(client, doctor, auth_headers):
+    _book(client, str(doctor.id))
+    appt_id = client.get("/api/v1/admin/appointments", headers=auth_headers).json()["items"][0]["id"]
+    client.patch(f"/api/v1/admin/appointments/{appt_id}/accept", json={}, headers=auth_headers)
+
+    response = client.post(
+        f"/api/v1/admin/appointments/{appt_id}/notifications/00000000-0000-0000-0000-000000000000/retry",
+        headers=auth_headers,
+    )
+    assert response.status_code == 404

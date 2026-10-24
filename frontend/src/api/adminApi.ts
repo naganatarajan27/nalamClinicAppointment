@@ -4,6 +4,9 @@ import type {
   AppointmentAdminDetail,
   AppointmentListResponse,
   AppointmentStatus,
+  DoctorAdmin,
+  DoctorAvailability,
+  DoctorAvailabilityInput,
   NotificationAttempt,
 } from '../types/api'
 
@@ -63,10 +66,57 @@ export function updateStatus(id: string, status: AppointmentStatus): Promise<App
   return apiRequest(`/admin/appointments/${id}/status`, { method: 'PATCH', body: { status } })
 }
 
-export function retryNotification(id: string): Promise<NotificationAttempt> {
-  return apiRequest(`/admin/appointments/${id}/notifications/retry`, { method: 'POST' })
+export function retryNotification(appointmentId: string, notificationId: string): Promise<NotificationAttempt> {
+  return apiRequest(`/admin/appointments/${appointmentId}/notifications/${notificationId}/retry`, {
+    method: 'POST',
+  })
 }
 
 export function listNotifications(id: string): Promise<NotificationAttempt[]> {
   return apiRequest(`/admin/appointments/${id}/notifications`)
+}
+
+export function listAllDoctors(): Promise<DoctorAdmin[]> {
+  return apiRequest('/admin/doctors')
+}
+
+export function createDoctor(payload: {
+  display_name: string
+  specialty?: string
+  is_active?: boolean
+}): Promise<DoctorAdmin> {
+  return apiRequest('/admin/doctors', { method: 'POST', body: payload })
+}
+
+export function updateDoctor(
+  id: string,
+  payload: { display_name?: string; specialty?: string; is_active?: boolean },
+): Promise<DoctorAdmin> {
+  return apiRequest(`/admin/doctors/${id}`, { method: 'PATCH', body: payload })
+}
+
+export function listDoctorAvailability(doctorId: string): Promise<DoctorAvailability[]> {
+  return apiRequest(`/admin/doctors/${doctorId}/availability`)
+}
+
+export function createDoctorAvailability(
+  doctorId: string,
+  payload: DoctorAvailabilityInput,
+): Promise<DoctorAvailability> {
+  return apiRequest(`/admin/doctors/${doctorId}/availability`, { method: 'POST', body: payload })
+}
+
+export function updateDoctorAvailability(
+  doctorId: string,
+  availabilityId: string,
+  payload: Partial<DoctorAvailabilityInput>,
+): Promise<DoctorAvailability> {
+  return apiRequest(`/admin/doctors/${doctorId}/availability/${availabilityId}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
+export function deleteDoctorAvailability(doctorId: string, availabilityId: string): Promise<void> {
+  return apiRequest(`/admin/doctors/${doctorId}/availability/${availabilityId}`, { method: 'DELETE' })
 }

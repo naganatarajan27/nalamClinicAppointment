@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.security import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME, read_session_token
 from app.db.session import get_db
+from app.integrations.email.base import EmailNotificationService
+from app.integrations.email.factory import get_email_adapter
 from app.integrations.whatsapp.base import WhatsAppNotificationService
 from app.integrations.whatsapp.factory import get_whatsapp_adapter
 from app.models.admin import Admin
@@ -25,6 +27,10 @@ def get_client_ip(request: Request) -> str:
 
 def get_whatsapp_service() -> WhatsAppNotificationService:
     return get_whatsapp_adapter()
+
+
+def get_email_service() -> EmailNotificationService:
+    return get_email_adapter()
 
 
 def get_current_admin(request: Request, db: DbSession) -> Admin:

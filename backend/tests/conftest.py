@@ -23,6 +23,18 @@ ADMIN_EMAIL = "admin@nalamclinic.com"
 ADMIN_PASSWORD = "a-strong-test-password-123"
 
 
+@pytest.fixture(autouse=True)
+def _reset_login_rate_limiter():
+    """The login rate limiter is a process-global singleton (by design, so it
+    survives across requests within a running server); reset it before every
+    test so one test's failed-login flood can't 429 a later, unrelated test.
+    """
+    from app.core.rate_limit import get_login_rate_limiter
+
+    get_login_rate_limiter()._attempts.clear()
+    yield
+
+
 @pytest.fixture()
 def db_session():
     engine = create_engine(

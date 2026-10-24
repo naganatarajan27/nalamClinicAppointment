@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     whatsapp_template_confirmation: str = ""
     whatsapp_template_alternate_slot: str = ""
 
+    email_provider: Literal["mock", "smtp"] = "mock"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_use_tls: bool = True
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

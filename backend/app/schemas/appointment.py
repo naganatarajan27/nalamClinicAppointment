@@ -2,7 +2,7 @@ import re
 import uuid
 from datetime import date, datetime, time
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.models.enums import AppointmentStatus, PatientType
 from app.schemas.doctor import DoctorPublic
@@ -25,6 +25,7 @@ class AppointmentCreate(BaseModel):
     patient_type: PatientType
     phone_number: str
     whatsapp_number: str
+    email: EmailStr | None = None
     doctor_id: uuid.UUID
     requested_date: date
     requested_time: time
@@ -86,6 +87,7 @@ class AppointmentAdminDetail(BaseModel):
     patient_type: PatientType
     phone_number: str
     whatsapp_number: str
+    email: str | None
     doctor: DoctorPublic | None
     requested_date: date
     requested_time: time

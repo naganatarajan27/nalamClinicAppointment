@@ -1,6 +1,7 @@
 import { Navigate, Route, BrowserRouter, Routes } from 'react-router-dom'
 import { AdminAppointmentDetailPage } from './pages/AdminAppointmentDetailPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
+import { AdminDoctorsPage } from './pages/AdminDoctorsPage'
 import { AdminLoginPage } from './pages/AdminLoginPage'
 import { BookingPage } from './pages/BookingPage'
 import { ConfirmSlotPage } from './pages/ConfirmSlotPage'
@@ -28,6 +29,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminAppointmentDetailPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/doctors"
+            element={
+              <RequireAuth>
+                <AdminDoctorsPage />
               </RequireAuth>
             }
           />

@@ -15,6 +15,9 @@ class NotificationRepository:
         self.db.flush()
         return attempt
 
+    def get(self, attempt_id: uuid.UUID) -> NotificationAttempt | None:
+        return self.db.get(NotificationAttempt, attempt_id)
+
     def list_for_appointment(self, appointment_id: uuid.UUID) -> list[NotificationAttempt]:
         stmt = (
             select(NotificationAttempt)

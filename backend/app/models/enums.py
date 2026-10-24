@@ -16,6 +16,7 @@ class AppointmentStatus(str, enum.Enum):
 
 class NotificationChannel(str, enum.Enum):
     WHATSAPP = "WHATSAPP"
+    EMAIL = "EMAIL"
 
 
 class NotificationType(str, enum.Enum):

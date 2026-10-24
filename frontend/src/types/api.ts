@@ -25,6 +25,7 @@ export interface AppointmentCreatePayload {
   patient_type: PatientType
   phone_number: string
   whatsapp_number: string
+  email?: string
   doctor_id: string
   requested_date: string
   requested_time: string
@@ -68,6 +69,7 @@ export interface AppointmentAdminDetail {
   patient_type: PatientType
   phone_number: string
   whatsapp_number: string
+  email: string | null
   doctor: Doctor | null
   requested_date: string
   requested_time: string
@@ -95,7 +97,7 @@ export interface AppointmentListResponse {
 
 export interface NotificationAttempt {
   id: string
-  channel: 'WHATSAPP'
+  channel: 'WHATSAPP' | 'EMAIL'
   notification_type: NotificationType
   status: NotificationStatus
   provider_message_id: string | null
@@ -103,6 +105,24 @@ export interface NotificationAttempt {
   last_error_summary: string | null
   created_at: string
   sent_at: string | null
+}
+
+export interface DoctorAvailability {
+  id: string
+  doctor_id: string
+  day_of_week: number // 0=Monday .. 6=Sunday
+  start_time: string
+  end_time: string
+  slot_duration_minutes: number
+  is_active: boolean
+}
+
+export interface DoctorAvailabilityInput {
+  day_of_week: number
+  start_time: string
+  end_time: string
+  slot_duration_minutes: number
+  is_active?: boolean
 }
 
 export interface AdminMe {
