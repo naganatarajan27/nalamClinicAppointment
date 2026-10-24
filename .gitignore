@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+backend/.venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+backend/.pytest_cache/
+backend/*.egg-info/
+backend/htmlcov/
+backend/.coverage
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Local dev DB
+*.sqlite3
